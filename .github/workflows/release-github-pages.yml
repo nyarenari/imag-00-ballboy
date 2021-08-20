@@ -1,0 +1,36 @@
+name: Release to Github Pages (CD)
+
+on:
+  repository_dispatch:
+    types: [release-github-pages]
+    inputs:
+      ref:
+        required: true
+      packageInitialism:
+        required: true
+
+jobs:
+  releaseToGitHubPages:
+    name: Release to GitHub Pages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.events.inputs.ref }}
+      - name: Download WebGL Artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ github.event.inputs.packageInitialism }}-WebGL
+          path: build/WebGL
+      - name: Copy the WebGL build artifacts to the GitHub Pages directory
+        env:
+          WEBGL_BUILD_PATH: ${{ format('{0}/build/WebGL', github.workspace) }}
+          WEBGL_PAGES_PATH: ${{ format('{0}/docs/WebGL', github.workspace) }}
+        run: find $WEBGL_BUILD_PATH -type f -name "**WebGL.*" -exec cp {} $WEBGL_PAGES_PATH \;
+      - name: Deploy to GitHub Pages
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          branch: main
+          file_pattern: docs/**
+          commit_message: Deploy to GitHub Pages

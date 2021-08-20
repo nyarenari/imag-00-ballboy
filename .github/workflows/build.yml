@@ -1,0 +1,257 @@
+name: Test & Build (CI)
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'app/Assets/**'
+      - 'app/Packages/**'
+      - 'app/ProjectSettings/**'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'check OR release (platform)'
+        required: true
+        default: 'check'
+
+env:
+  RELEASE_TARGETS:    ['android', 'ios', 'mac', 'web', 'windows']
+  PACKAGE_INITIALISM: bb
+  BUILD_METHOD:       Bb.Editor.BuildBb.BuildOptions
+  ## Valid Release Targets: 
+  # android - .apk standalone app
+  # ios     - iOS player
+  # mac     - macOS standalone (Intel 64-bit)
+  # web     - GitHub Pages WebGL
+  # windows - Windows Store Apps player
+
+  ### game-ci/unity-builder@v2 - https://game.ci/docs/github/builder
+  ## Personal license
+  # UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+  ## Professional License
+  # UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+  # UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+  # UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+
+jobs:
+
+  tests:
+    name: Test Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+        with:
+          lfs: true
+      - name: Cache Library
+        uses: actions/cache@v2
+        with:
+          path: Library
+          key: Library-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: Library-
+      - name: Run Unit Tests
+        uses: game-ci/unity-test-runner@main
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        with:
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+      - name: Write to Changelog
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          RELEASE_NOTES: ${{ github.event.release.body }}
+        run: echo "$RELEASE_NOTES" > fastlane/metadata/android/en-US/changelogs/default.txt
+      - name: Auto-Commit Changelog
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          branch: main
+          file_pattern: fastlane/metadata/android/en-US/changelogs/*
+          commit_message: Update Changelog
+
+  buildWithLinux:
+    name: Build for ${{ matrix.targetPlatform }}
+    runs-on: ubuntu-latest
+    needs: tests
+    strategy:
+      fail-fast: false
+      matrix:
+        targetPlatform:
+          - Android
+          - iOS
+          - StandaloneOSX
+          - StandaloneLinux64
+          - WebGL
+    steps:
+      - name: Free Disk Space for Android
+        if: matrix.targetPlatform == 'Android'
+        run: |
+          df -h
+          sudo swapoff -a
+          sudo rm -f /swapfile
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          df -h
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          lfs: true
+      - uses: actions/cache@v2
+        with:
+          path: Library
+          key: Library-${{ matrix.targetPlatform }}-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-${{ matrix.targetPlatform }}-
+            Library-
+      - name: Build Unity Project
+        uses: game-ci/unity-builder@main
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        with:
+          targetPlatform: ${{ matrix.targetPlatform }}
+          buildMethod: ${{ env.BUILD_METHOD }}
+          androidAppBundle: true
+          androidKeystoreName: finoldigital.keystore
+          androidKeystoreBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          androidKeystorePass: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          androidKeyaliasName: ${{ env.PACKAGE_INITIALISM }}
+          androidKeyaliasPass: ${{ secrets.ANDROID_KEYALIAS_PASS }}
+      - name: Upload Build
+        uses: actions/upload-artifact@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          name: ${{ env.PACKAGE_INITIALISM }}-${{ matrix.targetPlatform }}
+          path: build/${{ matrix.targetPlatform }}
+      - name: Zip build/${{ matrix.targetPlatform }}
+        uses: montudor/action-zip@v1
+        if: startsWith(github.ref, 'refs/tags/v') && matrix.targetPlatform == 'StandaloneLinux64'
+        with:
+          args: zip -qq -r build/${{ env.PACKAGE_INITIALISM }}-${{ matrix.targetPlatform }}.zip build/${{ matrix.targetPlatform }}
+      - name: Upload ${{ env.PACKAGE_INITIALISM }}-${{ matrix.targetPlatform }}.zip to GitHub Release
+        uses: svenstaro/upload-release-action@v2
+        if: startsWith(github.ref, 'refs/tags/v') && matrix.targetPlatform == 'StandaloneLinux64'
+        with:
+          repo_token: ${{ secrets.REPO_SCOPED_TOKEN }}
+          asset_name: ${{ env.PACKAGE_INITIALISM }}-${{ matrix.targetPlatform }}.zip
+          file: build/${{ env.PACKAGE_INITIALISM }}-${{ matrix.targetPlatform }}.zip
+          tag: ${{ github.ref }}
+          overwrite: true
+          body:  ${{ github.event.release.body }}
+
+  buildWithWindows:
+    name: Build for ${{ matrix.targetPlatform }}
+    runs-on: windows-latest
+    needs: tests
+    strategy:
+      fail-fast: false
+      matrix:
+        targetPlatform:
+          - StandaloneWindows
+          - WSAPlayer
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          lfs: true
+      - name: Get Version
+        id: versioning
+        uses: paulhatch/semantic-version@v4.0.2
+        with:
+          format: "${major}.${minor}.${patch}"
+      - name: Setup Unity IL2CPP
+        uses: kuler90/setup-unity@v1
+        with:
+          unity-modules: windows-il2cpp
+      - name: Setup Unity UWP
+        uses: kuler90/setup-unity@v1
+        if: matrix.targetPlatform == 'WSAPlayer'
+        with:
+          unity-modules: universal-windows-platform
+      - name: Activate Unity
+        uses: kuler90/activate-unity@v1
+        with:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+      - name: Build Unity
+        uses: kuler90/build-unity@v1
+        with:
+          build-path: build/${{ matrix.targetPlatform }}
+          build-target: ${{ matrix.targetPlatform }}
+          build-method: ${{ env.BUILD_METHOD }}
+          build-version: ${{ steps.versioning.outputs.version }}
+      - name: Upload Build
+        uses: actions/upload-artifact@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          name: ${{ env.PACKAGE_INITIALISM }}-${{ matrix.targetPlatform }}
+          path: build/${{ matrix.targetPlatform }}
+      - name: Zip build/${{ matrix.targetPlatform }}
+        uses: papeloto/action-zip@v1
+        if: startsWith(github.ref, 'refs/tags/v') && matrix.targetPlatform != 'WSAPlayer'
+        with:
+          files: build/${{ matrix.targetPlatform }}/
+          dest: build/${{ env.PACKAGE_INITIALISM }}-${{ matrix.targetPlatform }}.zip
+      - name: Upload ${{ env.PACKAGE_INITIALISM }}-${{ matrix.targetPlatform }}.zip to GitHub Release
+        uses: svenstaro/upload-release-action@v2
+        if: startsWith(github.ref, 'refs/tags/v') && matrix.targetPlatform != 'WSAPlayer'
+        with:
+          repo_token: ${{ secrets.REPO_SCOPED_TOKEN }}
+          asset_name: ${{ env.PACKAGE_INITIALISM }}-${{ matrix.targetPlatform }}.zip
+          file: build/${{ env.PACKAGE_INITIALISM }}-${{ matrix.targetPlatform }}.zip
+          tag: ${{ github.ref }}
+          overwrite: true
+          body: ${{ github.event.release.body }}
+
+  dispatchReleases:
+    name: Dispatch Releases
+    runs-on: ubuntu-latest
+    needs: [buildWithLinux, buildWithWindows]
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Dispatch Release - Google Play
+        if:  contains(env.TARGETS, 'android'))
+        uses: peter-evans/repository-dispatch@v1
+        with:
+          token:          ${{ secrets.REPO_SCOPED_TOKEN }}
+          repository:     ${{ github.repository }}
+          event-type:     release-google-play
+          client-payload: '{ "ref": "${{ github.ref }}" }'
+
+      - name: Dispatch Release - App Store
+        if: contains(env.TARGETS, 'ios'))
+        uses: peter-evans/repository-dispatch@v1
+        with:
+          token:          ${{ secrets.REPO_SCOPED_TOKEN }}
+          repository:     ${{ github.repository }}
+          event-type:     release-app-store
+          client-payload: '{ "ref": "${{ github.ref }}" }'
+
+      - name: Dispatch Release - Mac App Store
+        if: contains(env.TARGETS, 'mac'))
+        uses: peter-evans/repository-dispatch@v1
+        with:
+          token:          ${{ secrets.REPO_SCOPED_TOKEN }}
+          repository:     ${{ github.repository }}
+          event-type:     release-mac
+          client-payload: '{ "ref": "${{ github.ref }}" }'
+      
+      - name: Dispatch Release - Github Pages
+        if: contains(env.TARGETS, 'web'))
+        uses: peter-evans/repository-dispatch@v1
+        with:
+          token:          ${{ secrets.REPO_SCOPED_TOKEN }}
+          repository:     ${{ github.repository }}
+          event-type:     release-github-pages
+          client-payload: '{ "ref": "${{ github.ref }}" }'
+      
+      - name: Dispatch Release - Microsoft Store
+        if: contains(env.TARGETS, 'windows'))
+        uses: peter-evans/repository-dispatch@v1
+        with:
+          token:          ${{ secrets.REPO_SCOPED_TOKEN }}
+          repository:     ${{ github.repository }}
+          event-type:     release-microsoft-store
+          client-payload: '{ "ref": "${{ github.ref }}" }'
