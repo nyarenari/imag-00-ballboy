@@ -8,6 +8,12 @@ on:
         required: true
       packageInitialism:
         required: true
+      packageName:
+        required: true
+      packageNameLower:
+        required: true
+      packageNameSpaced:
+        required: true
 
 jobs:
   releaseToMacAppStore:
@@ -26,9 +32,9 @@ jobs:
       APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
       APPSTORE_P8: ${{ secrets. APPSTORE_P8 }}
       APPSTORE_P8_PATH: ${{ format('{0}/fastlane/p8.json', github.workspace) }}
-      MAC_APP_ID: com.finoldigital.CardGameSimulator
+      MAC_APP_ID: com.nyarenari.${{ github.event.inputs.packageName }}
       MAC_BUILD_PATH: ${{ format('{0}/build/StandaloneOSX', github.workspace) }}
-      PROJECT_NAME: Card Game Simulator
+      PROJECT_NAME: ${{ github.event.inputs.packageNameSpaced }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v2

@@ -8,14 +8,20 @@ on:
         required: true
       packageInitialism:
         required: true
+      packageName:
+        required: true
+      packageNameLower:
+        required: true
+      packageNameSpaced:
+        required: true
 
 jobs:
   releaseToMicrosoftStore:
     name: Release to the Microsoft Store
     runs-on: windows-latest
     env:
-      Wap_Project_Directory: build\WSAPlayer\Card Game Simulator
-      SigningCertificate: Card Game Simulator_StoreKey.pfx
+      Wap_Project_Directory: build\WSAPlayer\${{ github.event.inputs.packageNameSpaced }}
+      SigningCertificate: ${{ github.event.inputs.packageNameSpaced }}_StoreKey.pfx
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v2
@@ -45,16 +51,16 @@ jobs:
       - name: Restore the Wpf application to populate the obj folder
         shell: pwsh
         env:
-          SolutionPath: build\WSAPlayer\Card Game Simulator.sln
+          SolutionPath: build\WSAPlayer\${{ github.event.inputs.packageNameSpaced }}.sln
           Configuration: Master
           RuntimeIdentifier: win-x64
         run: msbuild $env:SolutionPath /t:Restore /p:Configuration=$env:Configuration /p:RuntimeIdentifier=$env:RuntimeIdentifier
       - name: Remove spaces from project name
         uses: microsoft/variable-substitution@v1 
         env:
-          ProjectName: CardGameSimulator
+          ProjectName: ${{ github.event.inputs.packageName }}
         with:
-          files: 'build\WSAPlayer\Card Game Simulator\Card Game Simulator.vcxproj'
+          files: 'build\WSAPlayer\${{ github.event.inputs.packageNameSpaced }}\${{ github.event.inputs.packageNameSpaced }}.vcxproj'
       - name: Decode the Pfx
         shell: pwsh
         run: |
@@ -65,7 +71,7 @@ jobs:
       - name: Build the .appxupload
         shell: pwsh
         env:
-          SolutionPath: build\WSAPlayer\Card Game Simulator.sln
+          SolutionPath: build\WSAPlayer\${{ github.event.inputs.packageNameSpaced }}.sln
           Configuration: Master
           TargetPlatform: x64
           BuildMode: StoreUpload
@@ -105,7 +111,7 @@ jobs:
           STOREBROKER_CONFIG_PATH: ${{ format('{0}\storebroker\SBConfig.json', github.workspace) }}
           PDP_ROOT_PATH: ${{ format('{0}\storebroker\', github.workspace) }}
           IMAGES_ROOT_PATH: ${{ format('{0}\docs\assets\img\', github.workspace) }}
-          APPX_PATH: ${{ format('{0}\build\WSAPlayer\AppPackages\CardGameSimulator\CardGameSimulator_{1}.0_x86_x64_arm_bundle_Master.appxupload', github.workspace, steps.versioning.outputs.version) }}
+          APPX_PATH: ${{ format('{0}\build\WSAPlayer\AppPackages\${{ github.event.inputs.packageName }}\${{ github.event.inputs.packageName }}_{1}.0_x86_x64_arm_bundle_Master.appxupload', github.workspace, steps.versioning.outputs.version) }}
           OUT_PATH: ${{ format('{0}\build\WSAPlayer\', github.workspace) }}
           SUBMISSION_DATA_PATH: ${{ format('{0}\build\WSAPlayer\${{ github.event.inputs.packageInitialism }}-upload.json', github.workspace) }}
           PACKAGE_PATH: ${{ format('{0}\build\WSAPlayer\${{ github.event.inputs.packageInitialism }}-upload.zip', github.workspace) }}

@@ -16,9 +16,12 @@ on:
         default: 'check'
 
 env:
-  RELEASE_TARGETS:    ['android', 'ios', 'mac', 'web', 'windows']
-  PACKAGE_INITIALISM: bb
-  BUILD_METHOD:       Bb.Editor.BuildBb.BuildOptions
+  RELEASE_TARGETS:      ['android', 'ios', 'mac', 'web', 'windows']
+  PACKAGE_NAME:         BallBoy
+  PACKAGE_NAME_LOWER:   ballboy
+  PACKAGE_NAME_SPACED:  Ball Boy
+  PACKAGE_INITIALISM:   bb
+  BUILD_METHOD:         Bb.Editor.BuildBb.BuildOptions
   ## Valid Release Targets: 
   # android - .apk standalone app
   # ios     - iOS player
@@ -114,7 +117,7 @@ jobs:
           targetPlatform: ${{ matrix.targetPlatform }}
           buildMethod: ${{ env.BUILD_METHOD }}
           androidAppBundle: true
-          androidKeystoreName: finoldigital.keystore
+          androidKeystoreName: nyarenari.keystore
           androidKeystoreBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           androidKeystorePass: ${{ secrets.ANDROID_KEYSTORE_PASS }}
           androidKeyaliasName: ${{ env.PACKAGE_INITIALISM }}
@@ -218,7 +221,7 @@ jobs:
           token:          ${{ secrets.REPO_SCOPED_TOKEN }}
           repository:     ${{ github.repository }}
           event-type:     release-google-play
-          client-payload: '{ "ref": "${{ github.ref }}" }'
+          client-payload: '{ "ref": "${{ github.ref }}", "packageInitialism": "${{ env.PACKAGE_INITIALISM }}", "packageName": "${{ env.PACKAGE_NAME }}", "packageNameLower": "${{ env.PACKAGE_NAME_LOWER }}", "packageNameSpaced": "${{ env.PACKAGE_NAME_SPACED }}" }'
 
       - name: Dispatch Release - App Store
         if: contains(env.TARGETS, 'ios'))
@@ -227,7 +230,7 @@ jobs:
           token:          ${{ secrets.REPO_SCOPED_TOKEN }}
           repository:     ${{ github.repository }}
           event-type:     release-app-store
-          client-payload: '{ "ref": "${{ github.ref }}" }'
+          client-payload: '{ "ref": "${{ github.ref }}", "packageInitialism": "${{ env.PACKAGE_INITIALISM }}", "packageName": "${{ env.PACKAGE_NAME }}", "packageNameLower": "${{ env.PACKAGE_NAME_LOWER }}", "packageNameSpaced": "${{ env.PACKAGE_NAME_SPACED }}" }'
 
       - name: Dispatch Release - Mac App Store
         if: contains(env.TARGETS, 'mac'))
@@ -236,8 +239,8 @@ jobs:
           token:          ${{ secrets.REPO_SCOPED_TOKEN }}
           repository:     ${{ github.repository }}
           event-type:     release-mac
-          client-payload: '{ "ref": "${{ github.ref }}" }'
-      
+          client-payload: '{ "ref": "${{ github.ref }}", "packageInitialism": "${{ env.PACKAGE_INITIALISM }}", "packageName": "${{ env.PACKAGE_NAME }}", "packageNameLower": "${{ env.PACKAGE_NAME_LOWER }}", "packageNameSpaced": "${{ env.PACKAGE_NAME_SPACED }}" }'
+
       - name: Dispatch Release - Github Pages
         if: contains(env.TARGETS, 'web'))
         uses: peter-evans/repository-dispatch@v1
@@ -245,8 +248,8 @@ jobs:
           token:          ${{ secrets.REPO_SCOPED_TOKEN }}
           repository:     ${{ github.repository }}
           event-type:     release-github-pages
-          client-payload: '{ "ref": "${{ github.ref }}" }'
-      
+          client-payload: '{ "ref": "${{ github.ref }}", "packageInitialism": "${{ env.PACKAGE_INITIALISM }}", "packageName": "${{ env.PACKAGE_NAME }}", "packageNameLower": "${{ env.PACKAGE_NAME_LOWER }}", "packageNameSpaced": "${{ env.PACKAGE_NAME_SPACED }}" }'
+
       - name: Dispatch Release - Microsoft Store
         if: contains(env.TARGETS, 'windows'))
         uses: peter-evans/repository-dispatch@v1
@@ -254,4 +257,4 @@ jobs:
           token:          ${{ secrets.REPO_SCOPED_TOKEN }}
           repository:     ${{ github.repository }}
           event-type:     release-microsoft-store
-          client-payload: '{ "ref": "${{ github.ref }}" }'
+          client-payload: '{ "ref": "${{ github.ref }}", "packageInitialism": "${{ env.PACKAGE_INITIALISM }}", "packageName": "${{ env.PACKAGE_NAME }}", "packageNameLower": "${{ env.PACKAGE_NAME_LOWER }}", "packageNameSpaced": "${{ env.PACKAGE_NAME_SPACED }}" }'

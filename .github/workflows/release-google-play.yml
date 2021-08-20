@@ -8,6 +8,12 @@ on:
         required: true
       packageInitialism:
         required: true
+      packageName:
+        required: true
+      packageNameLower:
+        required: true
+      packageNameSpaced:
+        required: true
 
 jobs:
   releaseToGooglePlay:
@@ -15,9 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GOOGLE_PLAY_KEY_FILE: ${{ secrets.GOOGLE_PLAY_KEY_FILE }}
-      GOOGLE_PLAY_KEY_FILE_PATH: ${{ format('{0}/fastlane/api-finoldigital.json', github.workspace) }}
+      GOOGLE_PLAY_KEY_FILE_PATH: ${{ format('{0}/fastlane/api-nyarenari.json', github.workspace) }}
       ANDROID_BUILD_FILE_PATH: ${{ format('{0}/build/Android/Android.aab', github.workspace) }}
-      ANDROID_PACKAGE_NAME: com.finoldigital.cardgamesim
+      ANDROID_PACKAGE_NAME: com.nyarenari.${{ github.event.inputs.packageNameLower }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v2
