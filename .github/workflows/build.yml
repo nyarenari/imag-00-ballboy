@@ -17,11 +17,11 @@ on:
 
 env:
   RELEASE_TARGETS:      ['android', 'ios', 'mac', 'web', 'windows']
-  PACKAGE_NAME:         BallBoy
-  PACKAGE_NAME_LOWER:   ballboy
-  PACKAGE_NAME_SPACED:  Ball Boy
-  PACKAGE_INITIALISM:   bb
-  BUILD_METHOD:         Bb.Editor.BuildBb.BuildOptions
+  PACKAGE_NAME:         UnityTemplate
+  PACKAGE_NAME_LOWER:   unitytemplate
+  PACKAGE_NAME_SPACED:  Unity Template
+  PACKAGE_INITIALISM:   ut
+  BUILD_METHOD:         Ut.Editor.BuildUt.BuildOptions
   ## Valid Release Targets: 
   # android - .apk standalone app
   # ios     - iOS player
